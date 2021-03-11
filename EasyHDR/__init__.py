@@ -26,7 +26,7 @@ from bpy.utils import previews
 bl_info = {
     "name": "Easy HDRI",
     "author": "Monaime Zaim (CodeOfArt.com) - Rombout Versluijs",
-    "version": (1, 1, 1),
+    "version": (1, 1, 2),
     "blender": (2, 82, 0),
     "location": "View3D > Properties > Easy HDRI",
     "description": "Load and test your HDRIs easily.", 
@@ -163,7 +163,8 @@ def update_dir(self, context):
         # if(nothumb.icon_id == None):   
         # print('nomatch' in hdris) 
         # print(hdris) 
-        if(len(previews_list) == 0) and ('nomatch' in hdris):
+        if(len(previews_list) == 0):
+        # if(len(previews_list) == 0) and ('nomatch' in hdris):
             enum_items.append((noname, strip_ext(noname),noname, nothumb.icon_id, 0))
             previews_list.append(noname)
         # print('previews_list %s' % previews_list)
@@ -222,9 +223,11 @@ def update_hdr(self, context):
                                         if x == y:
                                             env.projection = 'MIRROR_BALL'
                                         else: env.projection = 'EQUIRECTANGULAR'
-                    scn.act_prev = scn.prev
-                    if scn.easyhdr_bg_display:
-                        bpy.ops.easyhdr.generate_blured_image()
+                    
+                    if not ('nomatch.png' == scn.prev):                                        
+                        scn.act_prev = scn.prev
+                    if scn.easyhdr_bg_display == 'Blurred':
+                        bpy.ops.easyhdr.generate_blurred_image()
                                                 
     return None 
 
@@ -273,9 +276,10 @@ def update_bg_display(self, context):
         elif bg == 'Solid':
             nodes['Math_multiply_2'].inputs[1].default_value = 1.0
             nodes['Color Mix'].inputs[0].default_value = 1.0
-        elif bg == 'Blured':
+        elif bg == 'Blurred':
             nodes['Math_multiply_2'].inputs[1].default_value = 1.0
-            nodes['Color Mix'].inputs[0].default_value = 0.0    
+            nodes['Color Mix'].inputs[0].default_value = 0.0
+            bpy.ops.easyhdr.generate_blurred_image()
                 
     return None        
 
@@ -302,7 +306,7 @@ def create_world_nodes():
     tex_coord = world.node_tree.nodes.new(type="ShaderNodeTexCoord")    
     mapping = world.node_tree.nodes.new(type="ShaderNodeMapping")   
     env = world.node_tree.nodes.new(type="ShaderNodeTexEnvironment")  
-    env_blured = world.node_tree.nodes.new(type="ShaderNodeTexEnvironment")  
+    env_blurred = world.node_tree.nodes.new(type="ShaderNodeTexEnvironment")  
     background = world.node_tree.nodes.new(type="ShaderNodeBackground")
     background2 = world.node_tree.nodes.new(type="ShaderNodeBackground")
     gamma = world.node_tree.nodes.new(type="ShaderNodeGamma")
@@ -338,8 +342,8 @@ def create_world_nodes():
     color.name = 'Color Multiply'  
     color.blend_type = 'MULTIPLY'  
     color.inputs[0].default_value = 0.0
-    env_blured.name = 'Environment Blured'    
-    env_blured.interpolation = 'Smart'
+    env_blurred.name = 'Environment Blurred'    
+    env_blurred.interpolation = 'Smart'
     color2.name = 'Color Mix'
     color2.inputs[0].default_value = 1.0
     color2.inputs[2].default_value = (0.0, 0.0, 0.0, 1.0)
@@ -350,8 +354,8 @@ def create_world_nodes():
     # Links
     world.node_tree.links.new(tex_coord.outputs['Generated'], mapping.inputs[0])
     world.node_tree.links.new(mapping.outputs[0], env.inputs[0])
-    world.node_tree.links.new(mapping.outputs[0], env_blured.inputs[0])
-    world.node_tree.links.new(env_blured.outputs[0], color2.inputs[1])
+    world.node_tree.links.new(mapping.outputs[0], env_blurred.inputs[0])
+    world.node_tree.links.new(env_blurred.outputs[0], color2.inputs[1])
     world.node_tree.links.new(color2.outputs[0], background2.inputs[0])
     world.node_tree.links.new(env.outputs[0], gamma.inputs[0])
     world.node_tree.links.new(gamma.outputs[0], saturation.inputs[4])
@@ -371,7 +375,7 @@ def create_world_nodes():
     tex_coord.location = (130, 252)
     mapping.location = (310, 252)
     env.location = (680, 350)
-    env_blured.location = (680, 100)
+    env_blurred.location = (680, 100)
     gamma.location = (960, 350)
     saturation.location = (1120, 350)
     color.location = (1290, 350)
@@ -410,22 +414,22 @@ def get_active_hdri():
     return None        
                 
             
-# Generate and Save a Blured image from the active HDRI
-def generate_blured_image(hdr):
+# Generate and Save a Blurred image from the active HDRI
+def generate_blurred_image(hdr):
     
-    # Generate the blured image
-    blured_img = hdr.copy()
+    # Generate the blurred image
+    blurred_img = hdr.copy()
     filename = os.path.splitext(hdr.name)[0]
-    blured_img.name = 'Blured_' + getattr(bpy.context.scene,'blur_strength').replace(',', 'x') + '_' + filename + '.jpg'
+    blurred_img.name = filename + '_blurred_' + getattr(bpy.context.scene,'blur_strength').replace(',', 'x') + '.jpg'
     blur = getattr(bpy.context.scene,'blur_strength').split(',')
-    blured_img.scale(int(blur[0]),int(blur[1]))
+    blurred_img.scale(int(blur[0]),int(blur[1]))
     
-    new_path = blured_img.filepath.replace(hdr.name, '')
+    new_path = blurred_img.filepath.replace(hdr.name, '')
 
-    blured_imgs_path = os.path.join(new_path, 'EasyHDRI_Blured_images', blured_img.name)
-    blured_img.save_render(blured_imgs_path)
-    blured_img.filepath = blured_imgs_path
-    return blured_img            
+    blurred_imgs_path = os.path.join(new_path, 'EasyHDRI_Blurred_images', blurred_img.name)
+    blurred_img.save_render(blurred_imgs_path)
+    blurred_img.filepath = blurred_imgs_path
+    return blurred_img            
     
 
 # Remove unused images 
@@ -440,7 +444,7 @@ def check_world_nodes():
     nodes_list = ['Texture Coordinate', 'Mapping', 'Background',
                   'World Output', 'Environment', 'Math_multiply',
                   'Math_divide', 'Math_add', 'Color Multiply', 'Saturation',
-                  'Gamma', 'Environment Blured', 'Color Mix', 'Background2',
+                  'Gamma', 'Environment Blurred', 'Color Mix', 'Background2',
                   'Mix Shader', 'Light Path', 'Math_multiply_2']
     all_found = True              
     scn = bpy.context.scene
@@ -538,6 +542,7 @@ class EASYHDRI_OT_add_to_fav(Operator):
     bl_idname = "easyhdr.add_to_fav"
     bl_label = "Add to fav"
     bl_description = "Add the current folder to the favorites"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         scn = context.scene
@@ -563,6 +568,7 @@ class EASYHDRI_OT_remove_from_fav(Operator):
     bl_idname = "easyhdr.remove_from_fav"
     bl_label = "Remove"
     bl_description = "Remove the current folder from the favorites"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         scn = context.scene
@@ -581,14 +587,18 @@ class EASYHDRI_OT_reload_previews(Operator):
     bl_idname = "easyhdr.reload_previews"
     bl_label = "Reload previews"
     bl_description = "Reload previews"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         scn = context.scene
-        if 'previews_dir' in scn:
-            print("Do we have prev: %s" % 'prev' in scn)
+        print('prevdi in scn %s' % ('previews_dir' in scn))
+        if ('previews_dir' in scn):
+            # print("Do we have prev: %s" % 'prev' in scn)
+            print("'act_prev' in scn: %s" % 'act_prev' in scn)
+            print("'act_prev' in scn: %s" % ('act_prev' in scn))
             scn.easyhdr_filter = ""
-            if 'prev' in scn:
-                if 'act_prev' in scn:
+            if ('prev' in scn):
+                if ('act_prev' in scn):
                     prev = scn.act_prev
                 # print("Act prev HDR: %s" % act_prev)
                 list = scn['previews_list']
@@ -597,13 +607,12 @@ class EASYHDRI_OT_reload_previews(Operator):
                     prev = scn.prev
                 # print("HDR: %s" % prev)
                 index = list.index(prev)
-                image = list[index]     
+                image = list[index]
                 scn.prev = image
                 # scn.act_prev = prev
             elif scn.previews_dir:
                 scn.previews_dir = scn.previews_dir
             
-        
         return {'FINISHED'}     
 
 
@@ -612,6 +621,7 @@ class EASYHDRI_OT_clear_filters(Operator):
     bl_idname = "easyhdr.clear_filter"
     bl_label = "Clear Filter"
     bl_description = "Clears Filter"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         scn = context.scene
@@ -635,6 +645,7 @@ class EASYHDRI_OT_create_world(Operator):
     bl_idname = "easyhdr.create_world"
     bl_label = "Create world nodes"
     bl_description = "Create world nodes for EasyHDR"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         create_world_nodes()        
@@ -646,6 +657,7 @@ class EASYHDRI_OT_load_image(Operator):
     bl_idname = "easyhdr.load_image"
     bl_label = "Load image"
     bl_description = "Load image"
+    bl_options = {'REGISTER', 'UNDO'}
     
     @classmethod
     def poll(cls, context):
@@ -688,10 +700,12 @@ class EASYHDRI_OT_load_image(Operator):
                                         if x == y:
                                             env.projection = 'MIRROR_BALL'
                                         else: env.projection = 'EQUIRECTANGULAR'        
-                    
-                    scn.act_prev = image
+                    print(image)
+                    if not ('nomatch.png' == image):
+                        print("We save active image")
+                        scn.act_prev = image
                     if scn.easyhdr_bg_display:
-                        bpy.ops.easyhdr.generate_blured_image()    
+                        bpy.ops.easyhdr.generate_blurred_image()    
               
         return {'FINISHED'} 
 
@@ -701,6 +715,7 @@ class EASYHDRI_OT_remove_unused_images(Operator):
     bl_idname = "easyhdr.remove_unused_images"
     bl_label = "Remove unused images"
     bl_description = "Remove 0 user images"
+    bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
         cleanup_images()
@@ -712,6 +727,7 @@ class EASYHDRI_OT_next_image(Operator):
     bl_idname = "easyhdr.next"
     bl_label = "Next"
     bl_description = "Next image"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):        
         scn = context.scene
@@ -724,9 +740,8 @@ class EASYHDRI_OT_next_image(Operator):
         image = list[index]     
         if image != prev:
             scn.prev = image
-            # scn.act_prev = image
-            if scn.easyhdr_bg_display:
-                bpy.ops.easyhdr.generate_blured_image()
+            if scn.easyhdr_bg_display == 'Blurred':
+                bpy.ops.easyhdr.generate_blurred_image()
 
         return {'FINISHED'}
 
@@ -736,6 +751,7 @@ class EASYHDRI_OT_previous_image(Operator):
     bl_idname = "easyhdr.previous"
     bl_label = "Previous"
     bl_description = "Previous image"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         scn = context.scene
@@ -748,18 +764,18 @@ class EASYHDRI_OT_previous_image(Operator):
         image = list[index]     
         if image != prev:
             scn.prev = image
-            # scn.act_prev = image
-            if scn.easyhdr_bg_display:
-                bpy.ops.easyhdr.generate_blured_image()
+            if scn.easyhdr_bg_display == 'Blurred':
+                bpy.ops.easyhdr.generate_blurred_image()
 
         return {'FINISHED'}
 
 
-# Generate blured image from HDRI
-class EASYHDRI_OT_generate_blured_image(Operator):
-    bl_idname = "easyhdr.generate_blured_image"
-    bl_label = "Generate Blured Image"
-    bl_description = "Generate a blured image from the current HDRI"
+# Generate blurred image from HDRI
+class EASYHDRI_OT_generate_blurred_image(Operator):
+    bl_idname = "easyhdr.generate_blurred_image"
+    bl_label = "Generate Blurred Image"
+    bl_description = "Generate a blurred image from the current HDRI"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         scn = context.scene
@@ -768,24 +784,25 @@ class EASYHDRI_OT_generate_blured_image(Operator):
                 
         if hdr:
             # filepath_raw cause issues on OSX
-            blured_imgs_path = hdr.filepath.replace(hdr.name, 'EasyHDRI_Blured_images')
-            # blured_imgs_path = hdr.filepath_raw.replace(hdr.name, 'EasyHDRI_Blured_images')
+            blurred_imgs_path = hdr.filepath.replace(hdr.name, 'EasyHDRI_Blurred_images')
+            # blurred_imgs_path = hdr.filepath_raw.replace(hdr.name, 'EasyHDRI_Blurred_images')
             filename = os.path.splitext(hdr.name)[0]
-            # blured_img = 'Blured_' + filename +  '.jpg'
-            blured_img = 'Blured_' + getattr(bpy.context.scene,'blur_strength').replace(',', 'x') + '_' + filename + '.jpg'
-            blured_img_path = os.path.join(blured_imgs_path, blured_img)
-            # print("BLur img path: %s" % blured_img_path)
-            if blured_img in imgs:
-                img = imgs[blured_img]
-            elif os.path.exists(blured_img_path):
-                img = imgs.load(blured_img_path)                
+            # blurred_img = 'Blurred_' + filename +  '.jpg'
+            blurred_img = filename + '_blurred_' + getattr(bpy.context.scene,'blur_strength').replace(',', 'x') + '.jpg'
+            
+            blurred_img_path = os.path.join(blurred_imgs_path, blurred_img)
+            # print("BLur img path: %s" % blurred_img_path)
+            if blurred_img in imgs:
+                img = imgs[blurred_img]
+            elif os.path.exists(blurred_img_path):
+                img = imgs.load(blurred_img_path)                
             else:
-                img = generate_blured_image(hdr)
+                img = generate_blurred_image(hdr)
                     
             if img.name in bpy.data.images:
                 nodes = scn.world.node_tree.nodes
-                if 'Environment Blured' in nodes:
-                    nodes['Environment Blured'].image = img
+                if 'Environment Blurred' in nodes:
+                    nodes['Environment Blurred'].image = img
                     img.colorspace_settings.name = 'sRGB' 
                     """ 'Non-Color' """
                 
@@ -797,6 +814,7 @@ class EASYHDRI_OT_preview_world(Operator):
     bl_idname = "easyhdr.preview_world"
     bl_label = "Preview World"
     bl_description = "Preview HDR environment"
+    bl_options = {'REGISTER', 'UNDO'}
     
     @classmethod
     def poll(cls, context):
@@ -812,6 +830,7 @@ class EASYHDRI_OT_preview_world(Operator):
         view = context.space_data
         if view.type == 'VIEW_3D':
             shading = view.shading
+            # shading.type = 'MATERIAL'
         else:
             shading = context.scene.display.shading
         if shading.use_scene_world:
@@ -826,6 +845,7 @@ class EASYHDRI_OT_reset_to_default(Operator):
     bl_idname = "easyhdr.reset_to_default"
     bl_label = "Reset"
     bl_description = "Reset to Default Values"
+    bl_options = {'REGISTER', 'UNDO'}
     
     reset_type : StringProperty(default = 'ALL')
     
@@ -838,11 +858,13 @@ class EASYHDRI_OT_reset_to_default(Operator):
         return {'FINISHED'}
 
 
-# Load custom blured image
+# Load custom blurred image
 class EASYHDRI_OT_load_custom_image(Operator):
     bl_idname = "easyhdr.load_custom_image"
     bl_label = "Load Custom"
     bl_description = "Load Custom Image"
+    bl_options = {'REGISTER', 'UNDO'}
+
     filepath : StringProperty(subtype="FILE_PATH")
     
     def execute(self, context):
@@ -858,8 +880,8 @@ class EASYHDRI_OT_load_custom_image(Operator):
                 else:
                     img = bpy.data.images.load(self.filepath)
                 if img:
-                    if 'Environment Blured' in nodes:
-                        nodes['Environment Blured'].image = img
+                    if 'Environment Blurred' in nodes:
+                        nodes['Environment Blurred'].image = img
             else:
                 self.report({'WARNING'}, os.path.basename(self.filepath) + ' : ' + 'Is not a supported image file.')            
         return {'FINISHED'}                    
@@ -972,6 +994,7 @@ class EASYHDRI_PT_main(EasyHDRPanel, Panel):
                         
                     col = layout.column()              
                     row = col.row(align=True)           
+                    # row.scale_y = 1
                     row.prop(scn, "easyhdr_filter", text='', icon='VIEWZOOM')
                     row.operator("easyhdr.clear_filter", text = '',  icon = 'X')
                     # col = layout.column()     
@@ -993,7 +1016,8 @@ class EASYHDRI_PT_main(EasyHDRPanel, Panel):
                     # row = row.column()
                     row.scale_y = 1.5
                     row.operator("easyhdr.next", text = '', icon = 'FORWARD')
-               
+
+                    # col.scale_y = 1.5
                     if check_world_nodes() == 'Create' and return_collections(self,context):
                         col.operator("easyhdr.create_world", icon = 'WORLD_DATA')
                     elif check_world_nodes() == 'Fix' and return_collections(self,context):
@@ -1011,11 +1035,13 @@ class EASYHDRI_PT_main(EasyHDRPanel, Panel):
             col.prop(scn.render, 'engine')
 
 
+# Main Settings Sub-panel
 class EASYHDRI_PT_main_settings(EasyHDRPanel, Panel):
     bl_category = "Tool"
     # bl_context = ".objectmode"  # dot on purpose (access from topbar)
     bl_label = "Main Settings"
     bl_parent_id = "EASYHDRI_PT_main"
+    # bl_options = {'DEFAULT_CLOSED'}
     
     @classmethod
     def poll(cls, context):
@@ -1048,12 +1074,13 @@ class EASYHDRI_PT_main_settings(EasyHDRPanel, Panel):
         reset_main.reset_type = 'MAIN'
 
 
-
+# Expand Background Sub-panel
 class EASYHDRI_PT_main_expandbg(EasyHDRPanel, Panel):
     bl_category = "Tool"
     # bl_context = ".objectmode"  # dot on purpose (access from topbar)
     bl_label = "Expand Background"
     bl_parent_id = "EASYHDRI_PT_main"
+    bl_options = {'DEFAULT_CLOSED'}
     
     @classmethod
     def poll(cls, context):
@@ -1080,9 +1107,9 @@ class EASYHDRI_PT_main_expandbg(EasyHDRPanel, Panel):
         if scn.easyhdr_bg_display == 'Solid':
             col.column().prop(nodes['Color Mix'].inputs[2], "default_value", text = "Color")
             col.prop(nodes['Background2'].inputs[1], "default_value", text = "Strength")
-        elif scn.easyhdr_bg_display == 'Blured':
+        elif scn.easyhdr_bg_display == 'Blurred':
             col.prop(scn,'blur_strength')
-            col.operator('easyhdr.generate_blured_image', icon = 'NODE_TEXTURE')
+            col.operator('easyhdr.generate_blurred_image', icon = 'NODE_TEXTURE')
             col.operator('easyhdr.load_custom_image', icon = 'FILE_FOLDER')
             col.prop(nodes['Background2'].inputs[1], "default_value", text = "Strength")                        
 
@@ -1091,11 +1118,13 @@ class EASYHDRI_PT_main_expandbg(EasyHDRPanel, Panel):
         reset_bg.reset_type = 'BG'    
 
 
+# Expand Color
 class EASYHDRI_PT_main_expandcol(EasyHDRPanel, Panel):
     bl_category = "Tool"
     # bl_context = ".objectmode"  # dot on purpose (access from topbar)
     bl_label = "Expand Color"
     bl_parent_id = "EASYHDRI_PT_main"
+    bl_options = {'DEFAULT_CLOSED'}
     
     @classmethod
     def poll(cls, context):
@@ -1165,7 +1194,7 @@ classes = (
     EASYHDRI_OT_remove_unused_images,
     EASYHDRI_OT_next_image,
     EASYHDRI_OT_previous_image,
-    EASYHDRI_OT_generate_blured_image,
+    EASYHDRI_OT_generate_blurred_image,
     EASYHDRI_OT_reset_to_default,
     EASYHDRI_PT_main,
     EASYHDRI_PT_main_settings,
@@ -1210,7 +1239,7 @@ def register():
             description = 'Look for HDRIs in the sub folder(s), at this level, 0 = No recursion'
             )
     bpy.types.Scene.easyhdr_bg_display = EnumProperty(            
-            items = (('Original', 'Original', ''), ('Solid', 'Solid', ''), ('Blured', 'Blured', '')),
+            items = (('Original', 'Original', ''), ('Solid', 'Solid', ''), ('Blurred', 'Blurred', '')),
             update = update_bg_display,
             description = 'How to display the Background'
             )
