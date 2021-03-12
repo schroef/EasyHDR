@@ -26,7 +26,7 @@ from bpy.utils import previews
 bl_info = {
     "name": "Easy HDRI",
     "author": "Monaime Zaim (CodeOfArt.com) - Rombout Versluijs",
-    "version": (1, 1, 2),
+    "version": (1, 1, 3),
     "blender": (2, 82, 0),
     "location": "View3D > Properties > Easy HDRI",
     "description": "Load and test your HDRIs easily.", 
