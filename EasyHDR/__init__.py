@@ -18,7 +18,7 @@
 
 
 import bpy, os, re
-from bpy.props import *
+from bpy.props import StringProperty, EnumProperty, BoolProperty, IntProperty
 from bpy.types import Panel, Operator, Menu
 from bpy.utils import previews
 
@@ -30,7 +30,7 @@ bl_info = {
     "blender": (2, 82, 0),
     "location": "View3D > Properties > Easy HDRI",
     "description": "Load and test your HDRIs easily.", 
-    "wiki_url": "http://codeofart.com/easy-hdri/",
+    "doc_url": "http://codeofart.com/easy-hdri/",
     "tracker_url": "http://codeofart.com/easy-hdri/",      
     "category": "3D View"
     }
@@ -73,40 +73,25 @@ def get_hdris(dir, level = 1):
             if not fn.lower().startswith("._"):
                 if fn.lower().endswith(".hdr") or fn.lower().endswith(".exr"):
                     if not scn.easyhdr_filter or re.search(scn.easyhdr_filter, fn, re.I):
-                        # print(len(re.search(scn.easyhdr_filter, fn, re.I)))
-                        # hdris.append((os.path.join(root, fn).replace(dir, ''),os.path.join(root, strip_ext(fn)).replace(dir, ''),""))
-                        # print(os.path.join(root, fn).replace(dir, ''))        
                         hdris.append(os.path.join(root, fn).replace(dir, ''))
                         no_match = False
-                    # No result > we show nomatch                        
-                    # else:
-                        # print("nomatch.png in hdrs %s" % ("nomatch" in hdris))
-                        # print("Re.Search %s" % (re.search(scn.easyhdr_filter, fn, re.I)))
-                        # print("Re.Search == None %s" % (re.search(scn.easyhdr_filter, fn, re.I) == None))
-                        # # print('hdris %s' % hdris)
-                        # if (re.search(scn.easyhdr_filter, fn, re.I) == None):
-                        #     if not ("nomatch" in hdris):
-                        #         if (no_match == False):
-                        #             if len(hdris) == 0:
-                        #                 # print("===  no result  ===")
-                        #                 no_match = True
-                        #                 print('no_match %s' % no_match)
-                        #                 hdris.append('nomatch.png')
-        if not ("nomatch" in hdris):
-            if (no_match == False):
-                if len(hdris) == 0:
-                    # print("===  no result  ===")
-                    no_match = True
-                    print('no_match %s' % no_match)
-                    hdris.append('nomatch.png')
+                    
+        # BUGGY
+        # if not ("nomatch" in hdris):
+        #     if (no_match == False):
+        #         if len(hdris) == 0:
+        #             # print("===  no result  ===")
+        #             no_match = True
+        #             print('no_match %s' % no_match)
+        #             hdris.append('nomatch.png')
         num_sep_this = root.count(os.path.sep)
         if num_sep + level <= num_sep_this:
             del dirs[:]
     return hdris       
-   
+
+
 # Update the previews list if the folder changes
 def update_dir(self, context):
-       
     scn = bpy.context.scene
     enum_items = []
     if not 'previews_dir' in scn:
@@ -125,11 +110,7 @@ def update_dir(self, context):
     previews_folder = bpy.path.abspath(scn['previews_dir'])
     pcoll = preview_collections["prev"]
 
-    # strip_ext = lambda string: string.rstrip('.hdr')
-    # strip_ext = lambda string: string.split('.')[:1]
     strip_ext = lambda string: string[:-4].strip()
-    # nomatch = os.path.join(addon_dir, 'nomatch.png')
-    # nothumb = pcoll.load(nomatch, nomatch, 'IMAGE')
     noname = 'nomatch.png'
 
     # if (pcoll.get(nomatch) == None):
@@ -149,35 +130,32 @@ def update_dir(self, context):
             enum_items.append((name, strip_ext(name),name, thumb.icon_id, i))
             previews_list.append(name)
         
-        # No result > we show nomatch
-        # print('We have no match %s' % no_match)
-        # if no_match:
-        # print('pcoll %s' % (not pcoll.get(nomatch)))
-        # print('pcoll %s' % pcoll.get(nomatch))
-        # print('previews_list %s' % previews_list)
-        # print('previews_list len %s' % len(previews_list))
-        # if len(previews_list) == 0:
-        #     print("len pre_list: %s" % len(previews_list))
-        #     print("len enum_items: %s" % len(enum_items))
-        # print(nothumb.icon_id)    
-        # if(nothumb.icon_id == None):   
-        # print('nomatch' in hdris) 
-        # print(hdris) 
         if(len(previews_list) == 0):
         # if(len(previews_list) == 0) and ('nomatch' in hdris):
             enum_items.append((noname, strip_ext(noname),noname, nothumb.icon_id, 0))
             previews_list.append(noname)
-        # print('previews_list %s' % previews_list)
-        # print('previews_list len %s' % len(previews_list))
-        # print('pcoll path %s' % pcoll.get(nomatch))
-        # print(previews_list[0])
-
+        
         scn['previews_list'] = previews_list    
-        # print('enum_items %s' % enum_items)
+        
     pcoll.prev = enum_items
     pcoll.previews_dir = previews_folder
-    if len(previews_list) > 0:
-        scn.prev = previews_list[0]    
+    if ('act_prev' in scn) and (scn.easyhdr_filter == ''):
+        if scn.act_prev:
+            favs = scn.favs
+            prev = scn.act_prev
+            list = scn['previews_list']
+            if not favs in ['Empty', '']:
+                scn.previews_dir = favs
+            if not 'act_prev' in scn:
+                prev = scn.prev
+                print("==== OH NOOOOO ====")
+            index = list.index(prev)
+            image = list[index]     
+            scn.prev = image
+
+    else:
+        if len(previews_list) > 0:
+            scn.prev = previews_list[0]
     return None
 
 # Update the envirement map
@@ -263,6 +241,7 @@ def update_favs(self, context):
     else:
         if not favs in ['Empty', '']:
             scn.previews_dir = favs
+            # update_dir(self,context)
     return None
 
 # Update Background display
